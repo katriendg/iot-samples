@@ -1,0 +1,148 @@
+{
+  "$schema-template": "4.0.0",
+  "modulesContent": {
+    "$edgeAgent": {
+      "properties.desired": {
+        "schemaVersion": "1.1",
+        "runtime": {
+          "type": "docker",
+          "settings": {
+            "minDockerVersion": "v1.25",
+            "loggingOptions": "",
+            "registryCredentials": {
+              "registry1": {
+                "username": "$CONTAINER_REGISTRY_USERNAME_registry1",
+                "password": "$CONTAINER_REGISTRY_PASSWORD_registry1",
+                "address": "$CONTAINER_REGISTRY_ADDRESS_registry1"
+              }
+            }
+          }
+        },
+        "systemModules": {
+          "edgeAgent": {
+            "type": "docker",
+            "settings": {
+              "image": "mcr.microsoft.com/azureiotedge-agent:1.2",
+              "createOptions": {}
+            }
+          },
+          "edgeHub": {
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "mcr.microsoft.com/azureiotedge-hub:1.2",
+              "createOptions": {
+                "HostConfig": {
+                  "PortBindings": {
+                    "5671/tcp": [
+                      {
+                        "HostPort": "5671"
+                      }
+                    ],
+                    "8883/tcp": [
+                      {
+                        "HostPort": "8883"
+                      }
+                    ],
+                    "443/tcp": [
+                      {
+                        "HostPort": "443"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "modules": {
+          "interactiondemo": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "${MODULES.interactiondemo}",
+              "createOptions": {
+                "HostConfig": {
+                  "Binds": [
+                    "/edgefordemo/:/appdata/"
+                  ]
+                }
+              }
+            },
+            "env": {
+              "localstorageconnstring": {
+                "value": "${DEMO_LOCAL_STORAGECONNSTR}"
+              }
+            }
+          },
+          "storeonedge": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "mcr.microsoft.com/azure-blob-storage:latest",
+              "createOptions": {
+                "HostConfig": {
+                  "PortBindings": {
+                    "11002/tcp": [
+                      {
+                        "HostPort": "11002"
+                      }
+                    ]
+                  },
+                  "Binds": [
+                    "/edge/containerdata:/blobroot"
+                  ]
+                }
+              }
+            },
+            "env": {
+              "LOCAL_STORAGE_ACCOUNT_NAME": {
+                "value": "mylocalaccount"
+              },
+              "LOCAL_STORAGE_ACCOUNT_KEY": {
+                "value": "${AZ_STORAGE_MODULE_KEY}"
+              }
+            }
+          }
+        }
+      }
+    },
+    "storeonedge": {
+      "properties.desired": {
+        "deviceAutoDeleteProperties": {
+          "deleteOn": false,
+          "deleteAfterMinutes": 5,
+          "retainWhileUploading": true
+        },
+        "deviceToCloudUploadProperties": {
+          "uploadOn": true,
+          "uploadOrder": "OldestFirst",
+          "cloudStorageConnectionString": "${AZ_CLOUD_STORAGE_CONNSTR}",
+          "deleteAfterUpload": false,
+          "storageContainersForUpload": {
+            "containerdata": {
+              "target": "edgedrop"
+            }
+          }
+        }
+      }
+    },
+    "$edgeHub": {
+      "properties.desired": {
+        "schemaVersion": "1.1",
+        "routes": {
+          "interactiondemoToIoTHub": "FROM /messages/modules/interactiondemo/outputs/* INTO $upstream",
+          "storeonedgeToIoTHub": "FROM /messages/modules/storeonedge/outputs/* INTO $upstream"
+        },
+        "storeAndForwardConfiguration": {
+          "timeToLiveSecs": 7200
+        }
+      }
+    }
+  }
+}
